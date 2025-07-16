@@ -1,0 +1,27 @@
+syntax = "proto3";
+
+package order;
+
+message Order {
+  string id = 1;
+  string carId = 2;
+  string buyerId = 3;
+  string sellerId = 4;
+}
+
+// Criar uma nova ordem (compra de carro)
+message CreateOrderRequest {
+  string carId = 1;
+  string buyerId = 2;
+  string sellerId = 3;
+}
+
+message OrderResponse {
+  Order order = 1;
+  string message = 2;
+}
+
+// Serviço de Order
+service OrderService {
+  rpc CreateOrder(CreateOrderRequest) returns (OrderResponse);
+}

@@ -1,0 +1,52 @@
+syntax = "proto3";
+
+package car;
+
+// Definição da mensagem Car
+message Car {
+  string id = 1;
+  string name = 2;
+  int64 mileage = 3;
+  string ownerId = 4;
+  int32 price = 5;
+}
+
+// Request para obter carro por ID
+message GetCarRequest {
+  string id = 1;
+}
+
+// Request para criar novo carro
+message CreateCarRequest {
+  string name = 1;
+  int64 mileage = 2;
+  string ownerId = 3;
+  string price = 4;
+}
+
+// Response com um único carro
+message CarResponse {
+  Car car = 1;
+  string message = 2;
+}
+
+// Listagem de todos os carros
+message ListCarsRequest {}
+
+message ListCarsResponse {
+  repeated Car cars = 1;
+}
+
+message GetUserCarsRequest {
+  string userId = 1;
+}
+
+
+// Serviço
+service CarService {
+  rpc GetCar(GetCarRequest) returns (CarResponse);
+  rpc CreateCar(CreateCarRequest) returns (CarResponse);
+  rpc ListCars(ListCarsRequest) returns (ListCarsResponse);
+  rpc CarsSold(GetUserCarsRequest) returns (ListCarsResponse);
+  rpc CarsBought(GetUserCarsRequest) returns (ListCarsResponse);
+}

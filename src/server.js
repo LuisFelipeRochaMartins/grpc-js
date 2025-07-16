@@ -1,97 +1,106 @@
-import { loadPackageDefinition, status, Server, ServerCredentials } from '@grpc/grpc-js';
-import { loadSync } from '@grpc/proto-loader';
-import path from 'path';
-import { fileURLToPath } from 'url';
-import { db } from '../prisma.js';
+import { fastify } from "fastify";
+import { userClient } from "./clients/userClient.js";
+import { carClient } from "./clients/carClient.js";
+import { orderClient } from "./clients/orderClient.js";
 
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
+const app = fastify()
 
-const PROTO_PATH = path.join(__dirname, '../proto/user.proto');
+app.post("/users", (request, _) => {
+  const { name, email, password } = request.body
 
-const packageDefinition = loadSync(PROTO_PATH, {
-  keepCase: true,
-  longs: String,
-  enums: String,
-  defaults: true,
-  oneofs: true
-});
-
-const userProto = loadPackageDefinition(packageDefinition).user;
-
-const userService = {
-  GetUser: async(call, callback) => {
-    const userId = call.request.id;
-    const user = await db.user.findUnique({
-      where: {
-        id: userId
+  return new Promise ((resolve, reject) => {
+    userClient.CreateUser({ name, email, password }, (error, response) => {
+      if (error) {
+        reject(error)
+        return
       }
+      resolve(response)
     })
-    
-    if (user) {
-      callback(null, {
-        user: user,
-        message: 'Usuário encontrado com sucesso'
-      });
-    } else {
-      callback({
-        code: status.NOT_FOUND,
-        message: 'Usuário não encontrado'
-      });
-    }
-  },
+  })
+})
 
-  CreateUser: async(call, callback) => {
-    const { name, email, password } = call.request;
-
-    if (!name || !email || !password) {
-      callback({
-        code: status.INVALID_ARGUMENT,
-        message: 'Nome e email são obrigatórios'
-      });
-      return;
-    }
-
-    let newUser = await db.user.create({
-      data: {
-        email,
-        password,
-        name,
+app.get("/cars", async (request, reply) => {
+  return new Promise((resolve, reject) => {
+    carClient.ListCars({}, (err, response) => {
+      if (err) {
+        reply.code(500).send(err);
+        return reject(err);
       }
-    })
-
-    callback(null, {
-      user: newUser,
-      message: 'Usuário criado com sucesso' 
+      resolve(response.cars);
     });
-  },
-
-  ListUsers: async(call, callback) => {
-    const users = await db.user.findMany()
-
-    callback(null, {
-      users: users,
-      message: 'Usuários encontrados com sucesso'
-    });
-  }
-};
-
-const server = new Server();
-server.addService(userProto.UserService.service, userService);
-
-const PORT = '50051';
-server.bindAsync(`0.0.0.0:${PORT}`, ServerCredentials.createInsecure(), (err, port) => {
-  if (err) {
-    console.error('Erro ao iniciar servidor:', err);
-    return;
-  }
-  console.log(`Servidor gRPC rodando na porta ${port}`);
-});
-
-process.on('SIGINT', () => {
-  console.log('\nDesligando servidor...');
-  server.tryShutdown(() => {
-    console.log('Servidor desligado com sucesso');
-    process.exit(0);
   });
 });
+
+app.get("/cars-sold", async(request, reply) => {
+  const { userId } = request.body
+
+  return new Promise((resolve, reject) => {
+    carClient.CarsSold({ userId }, (err, response) => {
+      if (err) {
+        reply.code(500).send(err)
+        return reject(err)
+      } 
+      resolve(response.cars)
+    })
+  })
+})
+
+app.get("/cars-bought", async(request, reply) => {
+  const { userId } = request.body
+
+  return new Promise((resolve, reject) => {
+    carClient.CarsBought({ userId }, (err, response) => {
+      if (err) {
+        reply.code(500).send(err)
+        return reject(err)
+      } 
+      resolve(response.cars)
+    })
+  })
+})
+
+app.post("/cars", (request, _) => {
+  const { name, mileage, price, ownerId } = request.body
+
+  return new Promise ((resolve, reject) => {
+    carClient.CreateCar({ name, mileage, price, ownerId }, (error, response) => {
+      if (error) {
+        reject(error)
+        return
+      }
+      resolve(response)
+    })
+  })
+})
+
+app.post('/order', (request, _) => {
+  const { carId, buyerId, sellerId } = request.body
+
+  return new Promise((resolve, reject) => {
+    orderClient.CreateOrder({ carId, buyerId }, (error, response) => {
+      if (error) {
+        reject(error)
+        return
+      }
+      resolve(response)
+    })
+  })
+})
+
+app.post('/login', (request, _) => {
+  const { email, password } = request.body
+
+  return new Promise((resolve, reject) => {
+    userClient.LoginUser({ email, password }, (error, response) => {
+      if (error) {
+        reject(error)
+        return 
+      }
+      resolve(response)
+    })
+  })
+})
+
+app.listen({ port: 8080 }).then(() => {
+  console.log("Servidor HTTP")
+})
